@@ -85,7 +85,11 @@ def process_orders(driver):
             orders[order_index].click()
             time.sleep(2)
 
-            save_order_details(driver, order_index)
+            if save_order_details(driver):
+                print(f"Order {order_index + 1} processed")
+            else:
+                print(f"Order {order_index + 1} already exists, skipping")
+
             driver.back()
             order_index += 1
             time.sleep(2)
@@ -94,23 +98,29 @@ def process_orders(driver):
             break
 
 
-def save_order_details(driver, order_index):
+def save_order_details(driver):
     try:
         order_url = driver.current_url
         match = re.search(r"/orders/(\d+)", order_url)
         if not match:
             print(f"Could not extract order number from URL: {order_url}")
-            return
+            return False
+
         order_number = match.group(1)
+        file_path = os.path.join(user_folder, f"order_{order_number}.txt")
+
+        if os.path.exists(file_path):
+            return False
 
         order_details = driver.find_elements(By.CLASS_NAME, "ln-c-card.order-details__card")
-        file_path = os.path.join(user_folder, f"order_{order_number}.txt")
         with open(file_path, "w", encoding="utf-8") as file:
             for detail in order_details:
                 file.write(detail.text + "\n\n")
-        print(f"Order {order_index + 1} saved")
+        print(f"Order {order_number} saved")
+        return True
     except Exception as save_error:
-        print(f"Error saving order data {order_index + 1}: {save_error}")
+        print(f"Error saving order data: {save_error}")
+        return False
 
 
 def main():
