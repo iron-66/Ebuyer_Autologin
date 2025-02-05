@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
+import openai
 import time
 import os
 import uuid
@@ -11,7 +12,7 @@ import re
 load_dotenv()
 username = os.getenv("SAINSBURYS_USERNAME")
 password = os.getenv("SAINSBURYS_PASSWORD")
-
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 def get_user_uuid(username):
     uuid_file = "user_uuids.txt"
@@ -34,6 +35,8 @@ def get_user_uuid(username):
 user_uuid = get_user_uuid(username)
 user_folder = os.path.join("users", user_uuid)
 os.makedirs(user_folder, exist_ok=True)
+orders_file = os.path.join(user_folder, "orders.txt")
+plan_file = os.path.join(user_folder, "purchase_plan.txt")
 
 
 def login():
@@ -85,11 +88,14 @@ def process_orders(driver):
             orders[order_index].click()
             time.sleep(2)
 
-            result = save_order_details(driver)
+            result, order_data = save_order_details(driver)
 
             if result == "exists":
                 print(f"Order {order_index + 1} already exists, stopping further processing")
                 break
+
+            if result == "saved":
+                update_orders_file(order_data)
 
         except Exception as e:
             print(f"Error processing order {order_index + 1}: {e}")
@@ -98,7 +104,7 @@ def process_orders(driver):
 
         driver.back()
         order_index += 1
-        time.sleep(2)
+        time.sleep(3)
 
 
 def save_order_details(driver):
@@ -107,29 +113,85 @@ def save_order_details(driver):
         match = re.search(r"/orders/(\d+)", order_url)
         if not match:
             print(f"Could not extract order number from URL: {order_url}")
-            return "error"
+            return "error", None
 
         order_number = match.group(1)
         file_path = os.path.join(user_folder, f"order_{order_number}.txt")
 
         if os.path.exists(file_path):
-            return "exists"
+            return "exists", None
 
         order_details = driver.find_elements(By.CLASS_NAME, "ln-c-card.order-details__card")
+        order_data = f"Order {order_number}:\n"
+        order_data += "\n".join([detail.text for detail in order_details]) + "\n\n"
+
         with open(file_path, "w", encoding="utf-8") as file:
-            for detail in order_details:
-                file.write(detail.text + "\n\n")
+            file.write(order_data)
+
         print(f"Order {order_number} saved")
-        return "saved"
+        return "saved", order_data
+
     except Exception as save_error:
         print(f"Error saving order data: {save_error}")
-        return "error"
+        return "error", None
+
+
+def update_orders_file(order_data):
+    try:
+        if os.path.exists(orders_file):
+            with open(orders_file, "r", encoding="utf-8") as file:
+                existing_data = file.read()
+        else:
+            existing_data = ""
+
+        with open(orders_file, "w", encoding="utf-8") as file:
+            file.write(order_data + existing_data)
+
+        print("Updated orders.txt successfully")
+
+    except Exception as e:
+        print(f"Error updating orders.txt: {e}")
+
+
+def analyze_purchases():
+    if not os.path.exists(orders_file):
+        print("No orders.txt file found, skipping analysis.")
+        return
+
+    try:
+        with open(orders_file, "r", encoding="utf-8") as file:
+            orders_data = file.read()
+
+        prompt_text = (
+            "Вот список покупок из прошлых заказов:\n\n"
+            f"{orders_data}\n\n"
+            "На основе этой информации составь план покупок на 6 месяцев, учитывая возможные тенденции и периодичность повторяющихся покупок."
+        )
+
+        client = openai.OpenAI(api_key=openai_api_key)
+
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt_text}],
+            temperature=0.7
+        )
+
+        plan = response.choices[0].message.content
+
+        with open(plan_file, "w", encoding="utf-8") as file:
+            file.write(plan)
+
+        print("Purchase plan saved successfully.")
+
+    except Exception as e:
+        print(f"Error analyzing purchases: {e}")
 
 
 def main():
     try:
         driver = login()
         process_orders(driver)
+        #analyze_purchases()
     except Exception as e:
         print(f"Error: {e}")
     finally:
