@@ -2,3 +2,5 @@
 .env
 users
 user_uuids.txt
+initial_urls.txt
+products_links.txt
