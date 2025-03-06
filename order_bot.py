@@ -98,6 +98,7 @@ def proceed_to_checkout(driver):
         all_buttons = wait.until(EC.presence_of_all_elements_located(
             (By.CSS_SELECTOR, ".ln-c-button.ln-c-button--filled")
         ))
+        time.sleep(2)
 
         if len(all_buttons) > 1:
             second_button = all_buttons[1]
@@ -106,26 +107,41 @@ def proceed_to_checkout(driver):
             driver.execute_script("arguments[0].click();", second_button)
             print("Proceed to selecting a delivery slot")
             time.sleep(5)
+            select_delivery_slot(driver)
         else:
-            print("Unable to proceed to select a delivery slot")
+            print("Slot already booked")
     except Exception as e:
         print(f"Error clicking on the second button: {e}")
-        handle_redirects(driver)
 
 
 def handle_redirects(driver):
     wait = WebDriverWait(driver, 10)
-    for _ in range(4):
+    for _ in range(5):
         current_url = driver.current_url.lower()
         if "before-you-go" in current_url:
-            print("We are on the 'before you go' page.")
+            print("We are on the 'before you go' page")
             click_continue_button(driver, wait)
             time.sleep(2)
             continue
         elif "forgotten-favourites" in current_url:
-            print("We are on the 'forgotten favourites' page.")
+            print("We are on the 'forgotten favourites' page")
             click_continue_button(driver, wait)
             time.sleep(2)
+            continue
+        elif "summary" in current_url:
+            print("We are on the summary page")
+            click_continue_button(driver, wait)
+            time.sleep(2)
+            print("Confirmation successful")
+            continue
+        elif "payment" in current_url:
+            print("We are on the payment page")
+            while True:
+                time.sleep(2)
+                new_url = driver.current_url.lower()
+                if "payment" not in new_url:
+                    print(f"Payment finished. URL changed to {new_url}")
+                    break
             continue
         else:
             print("No more known redirects:", current_url)
@@ -220,7 +236,10 @@ def select_delivery_slot(driver):
 def process_order(product_urls: list[str]):
     chrome_options = Options()
     chrome_options.add_argument("--log-level=3")
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                "(KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36")
     driver = webdriver.Chrome(options=chrome_options)
 
     try:
@@ -230,12 +249,11 @@ def process_order(product_urls: list[str]):
             add_to_cart(driver, url)
             time.sleep(2)
         proceed_to_checkout(driver)
-        select_delivery_slot(driver)
+        handle_redirects(driver)
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        input("Process finished - close browser manually if needed.")
-        # driver.quit()
+        driver.quit()
 
 
 # --------------------------------
