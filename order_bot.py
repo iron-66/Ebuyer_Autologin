@@ -43,6 +43,7 @@ def login(driver):
     try:
         driver.get("https://www.sainsburys.co.uk/gol-ui/groceries")
         time.sleep(3)
+        print("Page loaded")
 
         wait = WebDriverWait(driver, 10)
         cookies_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Accept all']")))
@@ -52,10 +53,12 @@ def login(driver):
 
         driver.find_element(By.LINK_TEXT, "Log in / Register").click()
         time.sleep(1)
+        print("Button founded")
 
         cookies_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Accept all cookies']")))
         cookies_button.click()
         time.sleep(1)
+        print("Button clicked")
 
         driver.find_element(By.ID, "username").send_keys(username)
         driver.find_element(By.ID, "password").send_keys(password)
