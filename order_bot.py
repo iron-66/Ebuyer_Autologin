@@ -48,6 +48,7 @@ def login(driver):
         cookies_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Accept all']")))
         cookies_button.click()
         time.sleep(1)
+        print("Cookies accepted")
 
         driver.find_element(By.LINK_TEXT, "Log in / Register").click()
         time.sleep(1)
@@ -244,6 +245,7 @@ def process_order(product_urls: list[str]):
     driver = webdriver.Chrome(options=chrome_options)
 
     try:
+        print("Script started")
         login(driver)
         for url in product_urls:
             print(f"\nAdding to cart: {url}")
