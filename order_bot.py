@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List
 from selenium import webdriver
@@ -37,7 +37,19 @@ app = FastAPI(
 
 
 # --------------------------------
-# 4. Core functions (login, add_to_cart, etc.)
+# 4. Middleware for adding a header
+# --------------------------------
+@app.middleware("http")
+async def add_custom_header(request: Request, call_next):
+    headers = dict(request.headers)
+    headers["bypass-tunnel-reminder"] = "1"
+    response = await call_next(request)
+
+    return response
+
+
+# --------------------------------
+# 5. Core functions (login, add_to_cart, etc.)
 # --------------------------------
 def login(driver):
     try:
@@ -235,7 +247,7 @@ def select_delivery_slot(driver):
 
 
 # --------------------------------
-# 5. Function to process an order
+# 6. Function to process an order
 # --------------------------------
 def process_order(product_urls: list[str]):
     chrome_options = Options()
@@ -265,12 +277,16 @@ def process_order(product_urls: list[str]):
 
 
 # --------------------------------
-# 6. FastAPI endpoint to receive a list of products
+# 7. FastAPI endpoint to receive a list of products
 # --------------------------------
 @app.post("/order")
-def create_order(data: ProductList):
+def create_order(data: ProductList, request: Request):
+    headers = dict(request.headers)
+    print(f"Headers: {headers}")
+
     if not data.urls:
         raise HTTPException(status_code=400, detail="No product URLs provided.")
 
     process_order(data.urls)
+    print("Returning 200 OK (script completed successfully).")
     return {"status": "OK", "added": data.urls}
