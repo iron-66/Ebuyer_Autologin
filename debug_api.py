@@ -1,10 +1,6 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from typing import List
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Debug API",
@@ -19,11 +15,9 @@ class ProductList(BaseModel):
 
 @app.middleware("http")
 async def add_custom_header(request: Request, call_next):
-    request.headers.__dict__["_dict"]["bypass-tunnel-reminder"] = "1"
-
+    headers = dict(request.headers)
+    headers["bypass-tunnel-reminder"] = "1"
     response = await call_next(request)
-
-    logger.info(f"Final headers in response: {dict(response.headers)}")
 
     return response
 
@@ -31,12 +25,11 @@ async def add_custom_header(request: Request, call_next):
 @app.post("/order")
 async def create_order(request: Request, data: ProductList):
     headers = dict(request.headers)
-    logger.info(f"Headers: {headers}")
-
-    logger.info(f"Received JSON: {data.dict()}")
-
     query_params = dict(request.query_params)
-    logger.info(f"Query Params: {query_params}")
+
+    print(f"Headers: {headers}")
+    print(f"Received JSON: {data.dict()}")
+    print(f"Query Params: {query_params}")
 
     return {
         "status": "OK",
