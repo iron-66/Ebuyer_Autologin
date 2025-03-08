@@ -12,8 +12,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 class ProductList(BaseModel):
     urls: List[str]
+
+
+@app.middleware("http")
+async def add_custom_header(request: Request, call_next):
+    request.headers.__dict__["_dict"]["bypass-tunnel-reminder"] = "1"
+
+    response = await call_next(request)
+
+    logger.info(f"Final headers in response: {dict(response.headers)}")
+
+    return response
+
 
 @app.post("/order")
 async def create_order(request: Request, data: ProductList):
