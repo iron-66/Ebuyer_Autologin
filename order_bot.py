@@ -117,17 +117,22 @@ def proceed_to_checkout(driver):
         time.sleep(2)
 
         if len(all_buttons) > 1:
-            second_button = all_buttons[1]
-            driver.execute_script("arguments[0].scrollIntoView(true);", second_button)
-            time.sleep(1)
-            driver.execute_script("arguments[0].click();", second_button)
-            print("Proceed to selecting a delivery slot")
-            time.sleep(5)
-            select_delivery_slot(driver)
+            home_delivery_button = all_buttons[1]
+
+            try:
+                driver.execute_script("arguments[0].scrollIntoView(true);", home_delivery_button)
+                time.sleep(1)
+                driver.execute_script("arguments[0].click();", home_delivery_button)
+                print("Proceed to selecting a delivery slot")
+                time.sleep(5)
+                select_delivery_slot(driver)
+
+            except Exception:
+                print("Slot already booked")
         else:
             print("Slot already booked")
     except Exception as e:
-        print(f"Error clicking on the second button: {e}")
+        print(f"Error searching for home delivery button: {e}")
 
 
 def handle_redirects(driver):
@@ -280,10 +285,7 @@ def process_order(product_urls: list[str]):
 # 7. FastAPI endpoint to receive a list of products
 # --------------------------------
 @app.post("/order")
-def create_order(data: ProductList, request: Request):
-    headers = dict(request.headers)
-    print(f"Headers: {headers}")
-
+def create_order(data: ProductList):
     if not data.urls:
         raise HTTPException(status_code=400, detail="No product URLs provided.")
 
