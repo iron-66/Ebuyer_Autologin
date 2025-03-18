@@ -6,19 +6,19 @@ from tqdm import tqdm
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_PLUS_KEY"))
-START_LINE = 6260
-INPUT_FILE = "products_links.txt"
+START_LINE = 0
+INPUT_FILE = "products_links.txt.txt"
 
 CATEGORIES = [
     "Fresh fruits", "Fresh vegetables", "Greens (lettuce, herbs)", "Mushrooms",
     "Frozen fruits and vegetables", "Meat (beef, pork, poultry)", "Fish and seafood", "Sausages and bacon",
     "Plant-based meat alternatives", "Milk, yogurts, kefir", "Cheeses", "Butter", "Eggs and egg products",
-    "Plant-based dairy alternatives", "Bread and bakery products", "Cakes, muffins, desserts",
-    "Chocolate and candies", "Frozen vegetables and mixes", "Frozen desserts and ice cream",
+    "Plant-based dairy alternatives", "Bread and bakery products", "Cakes, muffins, desserts", "Spices",
+    "Chocolate and candies", "Frozen vegetables and mixes", "Frozen desserts and ice cream", "Cereals",
     "Semi-finished products (ready-made meals, salads, Kyiv cutlets, etc.)", "Ready meals that require minimal processing",
     "Soft drinks (soda, energy drinks)", "Juices, nectars and smoothies", "Water", "Tea and coffee", "Alcohol",
     "Canned goods and preserves", "Pasta, rice, cereals", "Sauces, seasonings and spices", "Oils and vinegars",
-    "Sweet and salty snacks, cookies", "Nuts and dried fruits", "Home and household", "Baby food"
+    "Snacks and cookies", "Nuts and dried fruits", "Home and household", "Baby food", "Health supplements"
 ]
 
 def classify_product(url):
