@@ -3,4 +3,4 @@ uvicorn
 selenium
 python-dotenv
 pydantic
-psycopg2
+psycopg2-binary
