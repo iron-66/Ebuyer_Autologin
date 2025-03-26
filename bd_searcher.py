@@ -106,6 +106,15 @@ def search_products(q: str = Query(..., description="Search like 'I want Aptamil
         cur.execute(sql, [category] + [f"%{kw}%" for kw in keywords])
         raw_results = cur.fetchall()
 
+        if not raw_results and keywords:
+            fallback_pattern = f"%{keywords[0]}%"
+            cur.execute("""
+                        SELECT name, url FROM products
+                        WHERE category = %s AND LOWER(name) LIKE %s
+                        LIMIT 10
+                    """, (category, fallback_pattern))
+            raw_results = cur.fetchall()
+
         cur.close()
         conn.close()
 
