@@ -47,6 +47,7 @@ def get_category_from_query(query: str) -> str:
     prompt = f"""You are a classification assistant.
 Task: Given a user request for a grocery item, return the best category.
 Categories: {', '.join(CATEGORIES)}
+If the user's query is not in English, first translate it into English. Then choose the best matching category from the list above.
 ONLY return the category name from the list."""
 
     response = openai.chat.completions.create(
@@ -63,7 +64,7 @@ def extract_keywords(query: str) -> List[str]:
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Extract 1–3 short keywords (e.g. brand, type, or key features) from the query. Return a comma-separated list."},
+            {"role": "system", "content": "Extract 1–3 short keywords (e.g. brand, type, or key features) from the query. If the user's query is not in English, first translate it into English. Return a comma-separated list."},
             {"role": "user", "content": query}
         ]
     )
