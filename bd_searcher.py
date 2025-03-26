@@ -82,7 +82,7 @@ def search_products(q: str = Query(..., description="Search query like 'I want c
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT name, url FROM groceries
+            SELECT name, url FROM products
             WHERE category = %s
             LIMIT 10
         """, (category,))
