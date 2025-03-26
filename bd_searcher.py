@@ -78,14 +78,17 @@ Respond ONLY with the name of the best-matching category from the list above."""
 def search_products(q: str = Query(..., description="Search query like 'I want chocolate snacks'")):
     category = get_category_from_query(q)
 
+    keywords = [word.strip() for word in q.lower().split() if len(word) > 2]
+    search_pattern = f"%{'%'.join(keywords)}%"
+
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
             SELECT name, url FROM products
-            WHERE category = %s
+            WHERE category = %s AND LOWER(name) LIKE %s
             LIMIT 10
-        """, (category,))
+        """, (category, search_pattern))
 
         rows = cur.fetchall()
         cur.close()
