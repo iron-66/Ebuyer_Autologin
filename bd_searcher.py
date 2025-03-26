@@ -16,10 +16,23 @@ OPENAI_API_KEY = os.getenv("OPENAI_PLUS_KEY")
 openai.api_key = OPENAI_API_KEY
 
 app = FastAPI(
-    title="Product Search API",
-    description="Search for grocery products based on natural language queries",
+    title="Smart Grocery Product Search",
+    description="Finds products by natural language request, using category, brand, type and validation",
     version="2.0.0"
 )
+
+CATEGORIES = [
+    "Fresh fruits", "Fresh vegetables", "Greens (lettuce, herbs)", "Mushrooms",
+    "Frozen fruits and vegetables", "Meat (beef, pork, poultry)", "Fish and seafood", "Sausages and bacon",
+    "Plant-based meat alternatives", "Milk, yogurts, kefir", "Cheeses", "Butter", "Eggs and egg products",
+    "Plant-based dairy alternatives", "Bread and bakery products", "Cakes, muffins, desserts", "Spices",
+    "Chocolate and candies", "Frozen vegetables and mixes", "Frozen desserts and ice cream", "Cereals",
+    "Semi-finished products (ready-made meals, salads, Kyiv cutlets, etc.)",
+    "Ready meals that require minimal processing", "Soft drinks (soda, energy drinks)",
+    "Juices, nectars and smoothies", "Water", "Tea and coffee", "Alcohol", "Canned goods and preserves",
+    "Pasta, rice, cereals", "Sauces, seasonings and spices", "Oils and vinegars",
+    "Snacks and cookies", "Nuts and dried fruits", "Home and household", "Baby food", "Health supplements"
+]
 
 def get_db_connection():
     return psycopg2.connect(
@@ -30,95 +43,83 @@ def get_db_connection():
         password=DB_PASSWORD
     )
 
-def analyze_query_with_gpt(query: str) -> dict:
-    system_prompt = """
-    You're a product search assistant. Given a user query, extract:
-    1. Category from a predefined list
-    2. Brand (if specified)
-    3. Product type (if specified)
-
-    Return ONLY in this format:
-    Category: <category>
-    Brand: <brand or None>
-    Type: <product type or None>
-    """
+def get_category_from_query(query: str) -> str:
+    prompt = f"""You are a classification assistant.
+Task: Given a user request for a grocery item, return the best category.
+Categories: {', '.join(CATEGORIES)}
+ONLY return the category name from the list."""
 
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": query}
         ]
     )
+    category = response.choices[0].message.content.strip()
+    return category if category in CATEGORIES else "Uncategorized"
 
-    result = response.choices[0].message.content.strip().split("\n")
-    parsed = {line.split(":")[0].lower(): line.split(":")[1].strip() for line in result if ":" in line}
-    return parsed
-
-def validate_results_with_gpt(query: str, results: List[dict]) -> List[dict]:
-    product_text = "\n".join([f"{r['name']} ({r['url']})" for r in results])
-    system_prompt = """
-    You are a product validator. Given a user's query and a list of product names, return ONLY those that are relevant to the query. If none match, return an empty list.
-    Format: name: url
-    """
-
+def extract_keywords(query: str) -> List[str]:
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Query: {query}\nProducts:\n{product_text}"}
+            {"role": "system", "content": "Extract 1–3 short keywords (e.g. brand, type, or key features) from the query. Return a comma-separated list."},
+            {"role": "user", "content": query}
         ]
     )
+    keywords = response.choices[0].message.content.strip().lower().split(",")
+    return [k.strip() for k in keywords if k.strip()]
 
-    lines = response.choices[0].message.content.strip().split("\n")
-    valid = [line for line in lines if "(" in line and ")" in line]
-    output = []
-    for line in valid:
-        try:
-            name, url = line.rsplit("(", 1)
-            output.append({"name": name.strip(), "url": url.replace(")", "").strip()})
-        except:
-            continue
-    return output
+def validate_match(product_name: str, query: str) -> bool:
+    prompt = f"""User asked: "{query}"
+Product name: "{product_name}"
+Does this product match the intent of the user request? Respond with 'Yes' or 'No' only."""
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip().lower().startswith("yes")
 
 @app.get("/search")
-def search_products(q: str = Query(..., description="Search query like 'I want Aptamil baby milk'")):
+def search_products(q: str = Query(..., description="Search like 'I want Aptamil baby milk'")):
     try:
-        parsed = analyze_query_with_gpt(q)
-        category = parsed.get("category", "Uncategorized")
-        brand = parsed.get("brand", None)
-        product_type = parsed.get("type", None)
+        category = get_category_from_query(q)
+        keywords = extract_keywords(q)
 
-        search_keywords = []
-        if brand and brand.lower() != "none":
-            search_keywords.append(f"%{brand.lower()}%")
-        if product_type and product_type.lower() != "none":
-            search_keywords.append(f"%{product_type.lower()}%")
+        if category == "Uncategorized":
+            raise HTTPException(status_code=400, detail="Could not determine category from query.")
 
-        conditions = " AND ".join(["LOWER(name) LIKE %s"] * len(search_keywords))
-        sql = f"SELECT name, url FROM products WHERE category = %s"
-        if conditions:
-            sql += f" AND {conditions}"
-        sql += " LIMIT 20"
-
-        values = [category] + search_keywords
+        if not keywords:
+            raise HTTPException(status_code=400, detail="Could not extract useful keywords.")
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute(sql, values)
-        rows = cur.fetchall()
+
+        keyword_conditions = " AND ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+        sql = f"""
+            SELECT name, url FROM products
+            WHERE category = %s AND {keyword_conditions}
+            LIMIT 20
+        """
+        cur.execute(sql, [category] + [f"%{kw}%" for kw in keywords])
+        raw_results = cur.fetchall()
+
         cur.close()
         conn.close()
 
-        results = [{"name": name, "url": url} for name, url in rows]
-        validated = validate_results_with_gpt(q, results)
+        validated_results = []
+        for name, url in raw_results:
+            if validate_match(name, q):
+                validated_results.append({"name": name, "url": url})
+            if len(validated_results) >= 10:
+                break
 
         return {
             "query": q,
             "category": category,
-            "brand": brand,
-            "type": product_type,
-            "results": validated
+            "keywords": keywords,
+            "results": validated_results
         }
 
     except Exception as e:
