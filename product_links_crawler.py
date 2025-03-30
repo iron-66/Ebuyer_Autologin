@@ -5,22 +5,35 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import os
 
+input_file = "initial_urls.txt"
 output_file = "products_links.txt"
-input_file = "initial_urls.txt"  # Файл со ссылками
 
 
 def accept_cookies(driver):
+    """
+    Accepts cookies on the Sainsbury's website if the consent banner is shown
+    """
     wait = WebDriverWait(driver, 10)
     try:
         cookies_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Accept all']")))
         cookies_button.click()
         time.sleep(2)
-        print("Cookies приняты.")
+        print("Cookies accepted")
     except:
-        print("Cookies уже приняты или не требуются.")
+        print("Cookies already accepted or not required")
 
 
 def get_links_from_page(driver, url):
+    """
+    Extracts all product links from the given page
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+        url (str): URL of the page to parse
+
+    Returns:
+        list[str]: Unique list of product URLs found on the page
+    """
     driver.get(url)
     time.sleep(2)
 
@@ -29,14 +42,20 @@ def get_links_from_page(driver, url):
         hrefs = [link.get_attribute("href") for link in links if link.get_attribute("href")]
         hrefs = list(set(hrefs))
         return hrefs
-
     except Exception as e:
-        print(f"Ошибка при парсинге ссылок на странице {url}: {e}")
+        print(f"Error parsing links from page {url}: {e}")
         return []
 
+
 def save_links(hrefs):
+    """
+    Saves only new product links to the output file
+
+    Args:
+        hrefs (list[str]): List of extracted product links
+    """
     if not os.path.exists(output_file):
-        with open(output_file, "w", encoding="utf-8") as file:
+        with open(output_file, "w", encoding="utf-8"):
             pass
 
     with open(output_file, "r", encoding="utf-8") as file:
@@ -55,27 +74,29 @@ def save_links(hrefs):
         with open(output_file, "a", encoding="utf-8") as file:
             for link in new_links:
                 file.write(link + "\n")
-
-        print(f"Добавлено {len(new_links)} новых ссылок.")
+        print(f"Added {len(new_links)} new links")
     else:
-        print("Новых ссылок нет.")
+        print("No new links found")
 
     if duplicate_links:
-        print(f"Найдено {len(duplicate_links)} дублирующихся ссылок, они не добавлены:")
+        print(f"{len(duplicate_links)} duplicate links skipped:")
         for dup in duplicate_links:
             print(f" - {dup}")
 
 
 def main():
+    """
+    Main entry point, loads category URLs and processes each to collect product links
+    """
     if not os.path.exists(input_file):
-        print(f"Файл {input_file} не найден. Создайте файл и добавьте ссылки по одной на строку.")
+        print(f"Input file '{input_file}' not found")
         return
 
     with open(input_file, "r", encoding="utf-8") as file:
         urls = file.read().splitlines()
 
     if not urls:
-        print(f"Файл {input_file} пуст. Добавьте ссылки и повторите запуск.")
+        print(f"Input file '{input_file}' is empty")
         return
 
     driver = webdriver.Chrome()
@@ -85,13 +106,11 @@ def main():
         accept_cookies(driver)
 
         for url in urls:
-            print(f"\nПарсинг страницы: {url}")
+            print(f"\nProcessing page: {url}")
             hrefs = get_links_from_page(driver, url)
             save_links(hrefs)
-
     except Exception as e:
-        print(f"Ошибка при обработке: {e}")
-
+        print(f"Error during processing: {e}")
     finally:
         driver.quit()
 
