@@ -10,22 +10,13 @@ from dotenv import load_dotenv
 import time
 import os
 
-# --------------------------------
-# 1. Load environment variables
-# --------------------------------
 load_dotenv()
 username = os.getenv("SAINSBURYS_USERNAME")
 password = os.getenv("SAINSBURYS_PASSWORD")
 
-# --------------------------------
-# 2. Pydantic model for input data
-# --------------------------------
 class ProductList(BaseModel):
     urls: List[str]
 
-# --------------------------------
-# 3. Initialize FastAPI
-# --------------------------------
 app = FastAPI(
     title="Sainsburys Bot API",
     description="Automate adding items to cart and selecting a delivery slot",
@@ -33,9 +24,6 @@ app = FastAPI(
 )
 
 
-# --------------------------------
-# 4. Middleware for adding a header
-# --------------------------------
 @app.middleware("http")
 async def add_custom_header(request: Request, call_next):
     """
@@ -54,9 +42,6 @@ async def add_custom_header(request: Request, call_next):
     return response
 
 
-# --------------------------------
-# 5. Core functions (login, add_to_cart, etc.)
-# --------------------------------
 def login(driver):
     """
     Logs in to the Sainsbury's website using credentials from environment variables
@@ -311,9 +296,6 @@ def select_delivery_slot(driver):
             print(f"Error selecting a delivery slot: {e}")
 
 
-# --------------------------------
-# 6. Function to process an order
-# --------------------------------
 def process_order(product_urls: list[str]):
     """
     Executes the full flow: logs in, adds products to the cart, checks out,
@@ -348,9 +330,6 @@ def process_order(product_urls: list[str]):
         driver.quit()
 
 
-# --------------------------------
-# 7. FastAPI endpoint to receive a list of products
-# --------------------------------
 @app.post("/order")
 def create_order(data: ProductList):
     """

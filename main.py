@@ -14,7 +14,18 @@ username = os.getenv("SAINSBURYS_USERNAME")
 password = os.getenv("SAINSBURYS_PASSWORD")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+
 def get_user_uuid(username):
+    """
+    Returns a unique UUID for the given username.
+    If not found, generates and stores a new one
+
+    Args:
+        username (str): User email or ID
+
+    Returns:
+        str: UUID associated with the user
+    """
     uuid_file = "user_uuids.txt"
 
     if os.path.exists(uuid_file):
@@ -23,12 +34,9 @@ def get_user_uuid(username):
                 saved_email, saved_uuid = line.strip().split(":")
                 if saved_email == username:
                     return saved_uuid
-
     new_uuid = str(uuid.uuid4())
-
     with open(uuid_file, "a", encoding="utf-8") as file:
         file.write(f"{username}:{new_uuid}\n")
-
     return new_uuid
 
 
@@ -40,6 +48,12 @@ plan_file = os.path.join(user_folder, "purchase_plan.txt")
 
 
 def login():
+    """
+    Logs into the Sainsbury's website using provided credentials
+
+    Returns:
+        webdriver.Chrome: Logged-in Selenium driver instance
+    """
     driver = webdriver.Chrome()
 
     try:
@@ -76,7 +90,15 @@ def login():
 
 
 def process_orders(driver):
+    """
+    Iterates through available orders, saves new ones,
+    and skips existing ones
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+    """
     order_index = 0
+
     while True:
         try:
             orders = driver.find_elements(By.CSS_SELECTOR, ".order__controls-button")
@@ -96,21 +118,29 @@ def process_orders(driver):
 
             if result == "saved":
                 update_orders_file(order_data)
-
         except Exception as e:
             print(f"Error processing order {order_index + 1}: {e}")
             order_index += 1
             continue
-
         driver.back()
         order_index += 1
         time.sleep(3)
 
 
 def save_order_details(driver):
+    """
+    Extracts and saves order information from the current page
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+
+    Returns:
+        tuple: ('saved' or 'exists' or 'error', order data or None)
+    """
     try:
         order_url = driver.current_url
         match = re.search(r"/orders/(\d+)", order_url)
+
         if not match:
             print(f"Could not extract order number from URL: {order_url}")
             return "error", None
@@ -130,13 +160,18 @@ def save_order_details(driver):
 
         print(f"Order {order_number} saved")
         return "saved", order_data
-
     except Exception as save_error:
         print(f"Error saving order data: {save_error}")
         return "error", None
 
 
 def update_orders_file(order_data):
+    """
+    Prepends newly saved order data to orders.txt file
+
+    Args:
+        order_data (str): Raw order text
+    """
     try:
         if os.path.exists(orders_file):
             with open(orders_file, "r", encoding="utf-8") as file:
@@ -148,12 +183,14 @@ def update_orders_file(order_data):
             file.write(order_data + existing_data)
 
         print("Updated orders.txt successfully")
-
     except Exception as e:
         print(f"Error updating orders.txt: {e}")
 
 
 def analyze_purchases():
+    """
+    Analyzes user's order history and generates a 6-month shopping plan using GPT.
+    """
     if not os.path.exists(orders_file):
         print("No orders.txt file found, skipping analysis.")
         return
@@ -182,12 +219,14 @@ def analyze_purchases():
             file.write(plan)
 
         print("Purchase plan saved successfully.")
-
     except Exception as e:
         print(f"Error analyzing purchases: {e}")
 
 
 def main():
+    """
+    Main function to run the login, order extraction, and optionally analysis
+    """
     try:
         driver = login()
         process_orders(driver)

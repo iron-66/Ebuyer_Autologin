@@ -24,8 +24,16 @@ CATEGORIES = [
 
 os.makedirs(CATEGORY_DIR, exist_ok=True)
 
+
 def get_last_processed_line():
+    """
+    Scan all category files and collect already processed URLs
+
+    Returns:
+        set: Set of URLs that have already been classified
+    """
     processed_urls = set()
+
     for category in CATEGORIES:
         category_file = os.path.join(CATEGORY_DIR, f"{category}.txt")
         if os.path.exists(category_file):
@@ -35,16 +43,17 @@ def get_last_processed_line():
                         processed_urls.add(line.strip().split(": ")[-1])
     return processed_urls
 
-processed_urls = get_last_processed_line()
-
-with open(INPUT_FILE, "r", encoding="utf-8") as file:
-    urls = [line.strip() for line in file.readlines() if line.strip()]
-
-urls_to_process = [url for url in urls if url not in processed_urls]
-
-print(f"🔄 Resuming from line {len(processed_urls)}. Remaining: {len(urls_to_process)} URLs.")
 
 def classify_product(url):
+    """
+    Ask GPT to classify a product and extract its name from the URL
+
+    Args:
+        url (str): URL of the product from Sainsbury's
+
+    Returns:
+        tuple[str, str]: (category, product name)
+    """
     prompt = f"""The following is a product URL from Sainsbury's online store:
 {url}
 
@@ -79,6 +88,15 @@ Do NOT return anything else.
     except Exception as e:
         print(f"Error processing {url}: {e}")
         return "Uncategorized", "Unknown Product"
+
+
+processed_urls = get_last_processed_line()
+
+with open(INPUT_FILE, "r", encoding="utf-8") as file:
+    urls = [line.strip() for line in file.readlines() if line.strip()]
+
+urls_to_process = [url for url in urls if url not in processed_urls]
+print(f"🔄 Resuming from line {len(processed_urls)}. Remaining: {len(urls_to_process)} URLs.")
 
 for url in tqdm(urls_to_process, desc="Processing URLs"):
     category, product_name = classify_product(url)

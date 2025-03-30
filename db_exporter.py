@@ -16,8 +16,8 @@ conn = psycopg2.connect(
     user=DB_USER,
     password=DB_PASSWORD
 )
-cur = conn.cursor()
 
+cur = conn.cursor()
 cur.execute("""
 CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
@@ -28,23 +28,30 @@ CREATE TABLE IF NOT EXISTS products (
 """)
 conn.commit()
 
-for filename in os.listdir(CATEGORIES_DIR):
-    category = filename.replace(".txt", "").strip()
-    filepath = os.path.join(CATEGORIES_DIR, filename)
 
-    with open(filepath, "r", encoding="utf-8") as file:
-        for line in file:
-            if ": http" in line:
-                name, url = line.strip().split(": http", 1)
-                name = name.strip()
-                url = "http" + url.strip()
-                cur.execute(
-                    "INSERT INTO products (name, url, category) VALUES (%s, %s, %s)",
-                    (name, url, category)
-                )
+def parse_and_insert_from_files():
+    """
+    Read each .txt file from the categories directory,
+    extract product name and URL, and insert into the database
+    """
+    for filename in os.listdir(CATEGORIES_DIR):
+        category = filename.replace(".txt", "").strip()
+        filepath = os.path.join(CATEGORIES_DIR, filename)
 
-conn.commit()
+        with open(filepath, "r", encoding="utf-8") as file:
+            for line in file:
+                if ": http" in line:
+                    name, url = line.strip().split(": http", 1)
+                    name = name.strip()
+                    url = "http" + url.strip()
+                    cur.execute(
+                        "INSERT INTO products (name, url, category) VALUES (%s, %s, %s)",
+                        (name, url, category)
+                    )
+    conn.commit()
+
+
+parse_and_insert_from_files()
 cur.close()
 conn.close()
-
-print("Export successful!")
+print("Export successful")
