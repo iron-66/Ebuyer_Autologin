@@ -12,7 +12,6 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 OPENAI_API_KEY = os.getenv("OPENAI_PLUS_KEY")
-
 openai.api_key = OPENAI_API_KEY
 
 app = FastAPI(
@@ -34,7 +33,14 @@ CATEGORIES = [
     "Snacks and cookies", "Nuts and dried fruits", "Home and household", "Baby food", "Health supplements"
 ]
 
+
 def get_db_connection():
+    """
+    Establish a connection to the PostgreSQL database
+
+    Returns:
+        psycopg2.extensions.connection: Database connection object
+    """
     return psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -43,7 +49,17 @@ def get_db_connection():
         password=DB_PASSWORD
     )
 
+
 def get_category_from_query(query: str) -> str:
+    """
+    Use GPT to classify the user's query into a known product category
+
+    Args:
+        query (str): Natural language query from the user
+
+    Returns:
+        str: Category name from CATEGORIES list or "Uncategorized"
+    """
     prompt = f"""You are a classification assistant.
 Task: Given a user request for a grocery item, return the best category.
 Categories: {', '.join(CATEGORIES)}
@@ -60,7 +76,17 @@ ONLY return the category name from the list."""
     category = response.choices[0].message.content.strip()
     return category if category in CATEGORIES else "Uncategorized"
 
+
 def extract_keywords(query: str) -> List[str]:
+    """
+    Extract 1–3 key terms from the user's query (e.g. brand, product type)
+
+    Args:
+        query (str): User's original request
+
+    Returns:
+        List[str]: List of lowercase keywords
+    """
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -71,7 +97,18 @@ def extract_keywords(query: str) -> List[str]:
     keywords = response.choices[0].message.content.strip().lower().split(",")
     return [k.strip() for k in keywords if k.strip()]
 
+
 def validate_match(product_name: str, query: str) -> bool:
+    """
+    Determine if a product name matches the user's intent
+
+    Args:
+        product_name (str): Product title from database
+        query (str): Original user query
+
+    Returns:
+        bool: True if the product matches user intent, False otherwise
+    """
     prompt = f"""User asked: "{query}"
 Product name: "{product_name}"
 Does this product match the intent of the user request? Respond with 'Yes' or 'No' only."""
@@ -82,11 +119,22 @@ Does this product match the intent of the user request? Respond with 'Yes' or 'N
     )
     return response.choices[0].message.content.strip().lower().startswith("yes")
 
+
 @app.get("/search")
-def search_products(q: str = Query(..., description="Search like 'I want Aptamil baby milk'")):
+def search_products(query_str: str = Query(..., description="Search like 'I want Aptamil baby milk'")):
+    """
+    Endpoint to search products based on a natural language query.
+    First extracts category and keywords, then searches and filters validated products
+
+    Args:
+        query_str (str): User's query string
+
+    Returns:
+        dict: Search results including matched products
+    """
     try:
-        category = get_category_from_query(q)
-        keywords = extract_keywords(q)
+        category = get_category_from_query(query_str)
+        keywords = extract_keywords(query_str)
 
         if category == "Uncategorized":
             raise HTTPException(status_code=400, detail="Could not determine category from query.")
@@ -117,20 +165,18 @@ def search_products(q: str = Query(..., description="Search like 'I want Aptamil
 
         cur.close()
         conn.close()
-
         validated_results = []
+
         for name, url in raw_results:
-            if validate_match(name, q):
+            if validate_match(name, query_str):
                 validated_results.append({"name": name, "url": url})
             if len(validated_results) >= 10:
                 break
-
         return {
-            "query": q,
+            "query": query_str,
             "category": category,
             "keywords": keywords,
             "results": validated_results
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search error: {e}")
