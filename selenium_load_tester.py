@@ -42,4 +42,4 @@ def measure_page_load_time(url: str) -> float:
 if __name__ == "__main__":
     target_url = "https://www.sainsburys.co.uk/gol-ui/groceries"
     load_time = measure_page_load_time(target_url)
-    print(f"⏱️ Page load time: {load_time:.2f} seconds")
+    print(f"Page load time: {load_time:.2f} seconds")
