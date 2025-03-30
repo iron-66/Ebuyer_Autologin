@@ -14,6 +14,7 @@ def accept_cookies(driver):
     Accepts cookies on the Sainsbury's website if the consent banner is shown
     """
     wait = WebDriverWait(driver, 10)
+
     try:
         cookies_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Accept all']")))
         cookies_button.click()

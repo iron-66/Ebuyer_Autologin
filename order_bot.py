@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 import time
 import os
 
-
 # --------------------------------
 # 1. Load environment variables
 # --------------------------------
@@ -18,13 +17,11 @@ load_dotenv()
 username = os.getenv("SAINSBURYS_USERNAME")
 password = os.getenv("SAINSBURYS_PASSWORD")
 
-
 # --------------------------------
 # 2. Pydantic model for input data
 # --------------------------------
 class ProductList(BaseModel):
     urls: List[str]
-
 
 # --------------------------------
 # 3. Initialize FastAPI
@@ -41,10 +38,19 @@ app = FastAPI(
 # --------------------------------
 @app.middleware("http")
 async def add_custom_header(request: Request, call_next):
+    """
+    Middleware that adds a custom header to all incoming requests
+
+    Args:
+        request (Request): The incoming HTTP request
+        call_next (Callable): The next handler in the middleware chain
+
+    Returns:
+        Response: The HTTP response with added headers
+    """
     headers = dict(request.headers)
     headers["bypass-tunnel-reminder"] = "1"
     response = await call_next(request)
-
     return response
 
 
@@ -52,6 +58,15 @@ async def add_custom_header(request: Request, call_next):
 # 5. Core functions (login, add_to_cart, etc.)
 # --------------------------------
 def login(driver):
+    """
+    Logs in to the Sainsbury's website using credentials from environment variables
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+
+    Raises:
+        RuntimeError: If any step of the login process fails
+    """
     try:
         driver.get("https://www.sainsburys.co.uk/gol-ui/groceries")
         time.sleep(3)
@@ -77,15 +92,22 @@ def login(driver):
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
         time.sleep(3)
         print("Login successful")
-
     except Exception as e:
         driver.quit()
         raise RuntimeError(f"Error during login: {e}")
 
 
 def add_to_cart(driver, url):
+    """
+    Adds products to the shopping cart by visiting its URL
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+        url (str): Product page URL
+    """
     wait = WebDriverWait(driver, 10)
     driver.get(url)
+
     try:
         add_button = wait.until(EC.element_to_be_clickable(
             (By.CSS_SELECTOR, ".ln-c-button.ln-c-button--filled.ln-c-button--full.pt__add-button--reduced-height")
@@ -97,6 +119,13 @@ def add_to_cart(driver, url):
 
 
 def proceed_to_checkout(driver):
+    """
+    Navigates to the cart page and proceeds to the checkout step
+    Handles selection of home delivery slot if required
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+    """
     wait = WebDriverWait(driver, 10)
     driver.get("https://www.sainsburys.co.uk/gol-ui/trolley")
     time.sleep(2)
@@ -126,7 +155,6 @@ def proceed_to_checkout(driver):
                 print("Proceed to selecting a delivery slot")
                 time.sleep(5)
                 select_delivery_slot(driver)
-
             except Exception:
                 print("Slot already booked")
         else:
@@ -136,9 +164,17 @@ def proceed_to_checkout(driver):
 
 
 def handle_redirects(driver):
+    """
+    Handles intermediate redirect pages during checkout.
+    For example: forgotten favourites, before-you-go, summary, payment
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+    """
     wait = WebDriverWait(driver, 10)
     for _ in range(5):
         current_url = driver.current_url.lower()
+
         if "before-you-go" in current_url:
             print("We are on the 'before you go' page")
             click_continue_button(driver, wait)
@@ -170,6 +206,13 @@ def handle_redirects(driver):
 
 
 def click_continue_button(driver, wait):
+    """
+    Finds and clicks the main 'Continue' button on a page
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+        wait (WebDriverWait): Selenium WebDriverWait object
+    """
     try:
         cta_button = wait.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, ".ln-c-button.ln-c-button--filled.trolley__cta-button"))
@@ -184,28 +227,41 @@ def click_continue_button(driver, wait):
 
 
 def select_delivery_slot(driver):
+    """
+    Searches for the first available delivery slot and confirms it
+
+    Args:
+        driver (webdriver.Chrome): Selenium WebDriver instance
+    """
     wait = WebDriverWait(driver, 15)
+
     try:
         table = wait.until(EC.presence_of_element_located((By.ID, "slot-table")))
         rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
+
         for row in rows:
             tds = row.find_elements(By.TAG_NAME, "td")
             if not tds:
                 continue
+
             for cell in tds:
                 try:
                     button = cell.find_element(By.CSS_SELECTOR, "button.book-slot-grid__slot")
                 except:
                     continue
+
                 if "book-slot-grid__slot-full" in button.get_attribute("class"):
                     continue
+
                 if "Unavailable" in button.text:
                     continue
+
                 driver.execute_script("arguments[0].scrollIntoView(true);", button)
                 time.sleep(1)
                 driver.execute_script("arguments[0].click();", button)
                 print("First available slot selected.")
                 time.sleep(2)
+
                 try:
                     confirm_btn = wait.until(EC.element_to_be_clickable((
                         By.CSS_SELECTOR,
@@ -217,7 +273,9 @@ def select_delivery_slot(driver):
                     print("Slot reservation confirmed.")
                 except Exception as e:
                     print(f"Error confirming slot reservation: {e}")
+
                 time.sleep(2)
+
                 try:
                     secondary_btn = wait.until(EC.element_to_be_clickable((
                         By.CSS_SELECTOR,
@@ -229,7 +287,9 @@ def select_delivery_slot(driver):
                     print("Clicked the booking confirmation secondary button.")
                 except Exception as e:
                     print(f"Error clicking booking confirmation button: {e}")
+
                 time.sleep(2)
+
                 try:
                     final_cta_btn = wait.until(EC.element_to_be_clickable((
                         By.CSS_SELECTOR,
@@ -255,6 +315,13 @@ def select_delivery_slot(driver):
 # 6. Function to process an order
 # --------------------------------
 def process_order(product_urls: list[str]):
+    """
+    Executes the full flow: logs in, adds products to the cart, checks out,
+    and selects a delivery slot
+
+    Args:
+        product_urls (list[str]): List of Sainsbury's product URLs to add to the cart
+    """
     chrome_options = Options()
     chrome_options.add_argument("--log-level=3")
     chrome_options.add_argument("--headless=new")
@@ -286,6 +353,15 @@ def process_order(product_urls: list[str]):
 # --------------------------------
 @app.post("/order")
 def create_order(data: ProductList):
+    """
+    FastAPI endpoint to create an order based on incoming product URLs
+
+    Args:
+        data (ProductList): JSON body with a list of product URLs
+
+    Returns:
+        dict: Confirmation with list of processed URLs
+    """
     if not data.urls:
         raise HTTPException(status_code=400, detail="No product URLs provided.")
 
