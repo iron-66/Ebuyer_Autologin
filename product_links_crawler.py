@@ -44,7 +44,7 @@ def get_links_from_page(driver, url):
         hrefs = list(set(hrefs))
         return hrefs
     except Exception as e:
-        print(f"Error parsing links from page {url}: {e}")
+        print(f"Error extracting links from page {url}: {e}")
         return []
 
 
