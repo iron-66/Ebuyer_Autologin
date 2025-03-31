@@ -151,23 +151,22 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # WHERE category = %s AND {keyword_conditions}
         keyword_conditions = " AND ".join(["LOWER(name) ILIKE %s"] * len(keywords))
         sql = f"""
             SELECT name, url FROM products
-            WHERE {keyword_conditions}
+            WHERE category = %s AND {keyword_conditions}
             LIMIT 20
         """
-        cur.execute(sql, [f"%{kw}%" for kw in keywords])
+        cur.execute(sql, [category] + [f"%{kw}%" for kw in keywords])
         raw_results = cur.fetchall()
 
         if not raw_results and keywords:
             fallback_pattern = f"%{keywords[0]}%"
             cur.execute("""
-                        SELECT name, url FROM products
-                        WHERE LOWER(name) LIKE %s
-                        LIMIT 10
-                    """, (fallback_pattern,))
+                SELECT name, url FROM products
+                WHERE LOWER(name) LIKE %s
+                LIMIT 10
+            """, (fallback_pattern,))
             raw_results = cur.fetchall()
 
         cur.close()
