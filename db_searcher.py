@@ -165,7 +165,7 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
             fallback_query = f"""
                 SELECT name, url FROM products
                 WHERE {fallback_conditions}
-                LIMIT 20
+                LIMIT 100
             """
             cur.execute(fallback_query, [f"%{kw}%" for kw in keywords])
             raw_results = cur.fetchall()
