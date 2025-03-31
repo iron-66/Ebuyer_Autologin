@@ -89,6 +89,7 @@ def extract_keywords(query: str) -> List[str]:
     """
     prompt = f"""Extract 1–3 short keywords (e.g. brand, type, or key features) from the query.
     It could be just the name of the product (e.g. water, milk, pizza). Each key = 1 word.
+    If the product name consists of several words, separate them (e.g. easy peelers -> easy, peelers).
     If the user's query is not in English, first translate it into English.
     Return a comma-separated list."""
 
