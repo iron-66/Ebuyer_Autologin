@@ -4,6 +4,7 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import openai
+import logging
 
 load_dotenv()
 DB_HOST = os.getenv("DB_HOST")
@@ -87,7 +88,7 @@ def extract_keywords(query: str) -> List[str]:
     Returns:
         List[str]: List of lowercase keywords
     """
-    prompt = f"""Extract 1–3 short keywords (e.g. brand, type, or key features) from the query.
+    prompt = f"""Extract 1–3 short keywords (e.g. brand, type of food, or key features) from the query. Leave only the essentials, remove the unnecessary.
     It could be just the name of the product (e.g. water, milk, pizza). Each key = 1 word.
     If the product name consists of several words, separate them (e.g. easy peelers -> easy, peelers).
     If the user's query is not in English, first translate it into English.
@@ -126,41 +127,6 @@ def validate_match(product_name: str, query: str) -> bool:
     return response.choices[0].message.content.strip().lower().startswith("yes")
 
 
-def validate_fallback(product_names: List[str], query: str, max_results: int = 10) -> List[int]:
-    """
-    Uses GPT to filter a list of product names and return indexes of those most relevant to the query
-
-    Args:
-        product_names (List[str]): List of product titles from fallback query
-        query (str): Original user query
-        max_results (int): Maximum number of results to return
-
-    Returns:
-        List[int]: Indexes of matching products
-    """
-    items = "\n".join([f"{i+1}. {name}" for i, name in enumerate(product_names)])
-
-    prompt = f"""User asked: "{query}"
-    Here is a list of product names:
-    {items}
-    
-    Your task is to select the most relevant products (up to {max_results}) that match the user's request. 
-    Return only a list of numbers corresponding to the items, separated by commas. Do not return anything else."""
-
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
-        )
-        content = response.choices[0].message.content.strip()
-        indexes = [int(i) - 1 for i in content.split(",") if i.strip().isdigit()]
-        return [i for i in indexes if 0 <= i < len(product_names)]
-    except Exception as e:
-        print(f"GPT filtering failed: {e}")
-        return list(range(min(max_results, len(product_names))))
-
-
 @app.get("/search")
 def search_products(query_str: str = Query(..., description="Search like 'I want Aptamil baby milk'")):
     """
@@ -194,30 +160,36 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
         """
         cur.execute(sql, [category] + [f"%{kw}%" for kw in keywords])
         raw_results = cur.fetchall()
-        validated_results = []
 
-        if raw_results:
-            for name, url in raw_results:
-                if validate_match(name, query_str):
-                    validated_results.append({"name": name, "url": url})
-                if len(validated_results) >= 10:
-                    break
-        else:
-            fallback_conditions = " OR ".join(["LOWER(name) LIKE %s"] * len(keywords))
-            fallback_query = f"""
+        if not raw_results:
+            fallback_or_conditions = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+            fallback_sql = f"""
                 SELECT name, url FROM products
-                WHERE {fallback_conditions}
-                LIMIT 200
+                WHERE category = %s AND ({fallback_or_conditions})
+                LIMIT 50
             """
-            cur.execute(fallback_query, [f"%{kw}%" for kw in keywords])
+            cur.execute(fallback_sql, [category] + [f"%{kw}%" for kw in keywords])
             raw_results = cur.fetchall()
-            product_names = [name for name, _ in raw_results]
-            selected_indexes = validate_fallback(product_names, query_str)
 
-            validated_results = [{"name": raw_results[i][0], "url": raw_results[i][1]} for i in selected_indexes[:10]]
+        if not raw_results:
+            final_or_conditions = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+            final_sql = f"""
+                SELECT name, url FROM products
+                WHERE {final_or_conditions}
+                LIMIT 100
+            """
+            cur.execute(final_sql, [f"%{kw}%" for kw in keywords])
+            raw_results = cur.fetchall()
 
         cur.close()
         conn.close()
+        validated_results = []
+
+        for name, url in raw_results:
+            if validate_match(name, query_str):
+                validated_results.append({"name": name, "url": url})
+            if len(validated_results) >= 10:
+                break
 
         return {
             "query": query_str,
