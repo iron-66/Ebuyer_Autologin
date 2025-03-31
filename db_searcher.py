@@ -161,7 +161,7 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
                         SELECT name, url FROM products
                         WHERE LOWER(name) LIKE %s
                         LIMIT 10
-                    """, (fallback_pattern))
+                    """, (fallback_pattern,))
             raw_results = cur.fetchall()
 
         cur.close()
