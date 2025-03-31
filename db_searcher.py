@@ -163,14 +163,16 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
         if not raw_results and keywords:
             fallback_conditions = " + ".join([f"CASE WHEN LOWER(name) LIKE %s THEN 1 ELSE 0 END" for _ in keywords])
             sql = f"""
-                SELECT name, url,
-                       ({fallback_conditions}) as match_score
-                FROM products
-                WHERE {" OR ".join(["LOWER(name) LIKE %s"] * len(keywords))}
+                SELECT name, url
+                FROM (
+                    SELECT name, url,
+                           ({fallback_conditions}) as match_score
+                    FROM products
+                    WHERE {" OR ".join(["LOWER(name) LIKE %s"] * len(keywords))}
+                ) AS sub
                 ORDER BY match_score DESC
                 LIMIT 10
             """
-
             params = [f"%{kw}%" for kw in keywords] * 2
             cur.execute(sql, params)
             raw_results = cur.fetchall()
