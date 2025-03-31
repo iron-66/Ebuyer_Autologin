@@ -87,7 +87,7 @@ def extract_keywords(query: str) -> List[str]:
     Returns:
         List[str]: List of lowercase keywords
     """
-    prompt = f"""Extract 1–3 short keywords (e.g. brand, type, or key features) from the query.
+    prompt = f"""Extract 1–3 short keywords (e.g. brand, type, or key features) from the query. Remove unnecessary words.
     It could be just the name of the product (e.g. water, milk, pizza). Each key = 1 word.
     If the product name consists of several words, separate them (e.g. easy peelers -> easy, peelers).
     If the user's query is not in English, first translate it into English.
@@ -165,7 +165,7 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
             fallback_query = f"""
                 SELECT name, url FROM products
                 WHERE {fallback_conditions}
-                LIMIT 100
+                LIMIT 20
             """
             cur.execute(fallback_query, [f"%{kw}%" for kw in keywords])
             raw_results = cur.fetchall()
