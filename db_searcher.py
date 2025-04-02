@@ -152,33 +152,33 @@ def search_products(query_str: str = Query(..., description="Search like 'I want
         conn = get_db_connection()
         cur = conn.cursor()
 
-        keyword_conditions = " AND ".join(["LOWER(name) ILIKE %s"] * len(keywords))
-        sql = f"""
+        strict_condition = " AND ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+        strict_sql = f"""
             SELECT name, url FROM products
-            WHERE category = %s AND {keyword_conditions}
+            WHERE category = %s AND {strict_condition}
             LIMIT 20
         """
-        cur.execute(sql, [category] + [f"%{kw}%" for kw in keywords])
+        cur.execute(strict_sql, [category] + [f"%{kw}%" for kw in keywords])
         raw_results = cur.fetchall()
 
         if not raw_results:
-            fallback_or_conditions = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
-            fallback_sql = f"""
+            semistrict_condition = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+            semistrict_sql = f"""
                 SELECT name, url FROM products
-                WHERE category = %s AND ({fallback_or_conditions})
+                WHERE category = %s AND ({semistrict_condition})
                 LIMIT 50
             """
-            cur.execute(fallback_sql, [category] + [f"%{kw}%" for kw in keywords])
+            cur.execute(semistrict_sql, [category] + [f"%{kw}%" for kw in keywords])
             raw_results = cur.fetchall()
 
         if not raw_results:
-            final_or_conditions = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
-            final_sql = f"""
+            failsafe_condition = " OR ".join(["LOWER(name) ILIKE %s"] * len(keywords))
+            failsafe_sql = f"""
                 SELECT name, url FROM products
-                WHERE {final_or_conditions}
+                WHERE {failsafe_condition}
                 LIMIT 100
             """
-            cur.execute(final_sql, [f"%{kw}%" for kw in keywords])
+            cur.execute(failsafe_sql, [f"%{kw}%" for kw in keywords])
             raw_results = cur.fetchall()
 
         cur.close()
