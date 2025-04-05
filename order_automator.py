@@ -7,6 +7,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
+import undetected_chromedriver as uc
 import time
 import os
 
@@ -304,16 +305,9 @@ def process_order(product_urls: list[str]):
     Args:
         product_urls (list[str]): List of Sainsbury's product URLs to add to the cart
     """
-    chrome_options = Options()
-    chrome_options.add_argument("--log-level=3")
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.execute_cdp_cmd("Network.setUserAgentOverride", {
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36"
-    })
+    options = uc.ChromeOptions()
+    # options.add_argument("--headless=new")  # UI
+    driver = uc.Chrome(options=options)
 
     try:
         print("Script started")
