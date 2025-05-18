@@ -118,7 +118,7 @@ def proceed_to_checkout(driver):
 
     try:
         checkout_button = wait.until(EC.element_to_be_clickable(
-            (By.CSS_SELECTOR, ".ln-c-button.ln-c-button--filled.trolley__cta-button")
+            (By.CSS_SELECTOR, '[data-testid="order-summary-book-slot-button"]')
         ))
         checkout_button.click()
         print("Cart is complete")

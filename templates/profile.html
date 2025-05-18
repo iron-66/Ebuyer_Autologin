@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>User Profile</title>
+</head>
+<body>
+    <h2>Welcome</h2>
+
+    <p style="color: red;"><strong>Note:</strong> To complete orders via AI Food Buyer, your Sainsbury’s account must have a linked payment card.</p>
+
+    <h3>Fill in your delivery information</h3>
+    <form id="profileForm">
+        <label for="first_name">First Name:</label><br>
+        <input type="text" id="first_name" name="first_name" required><br><br>
+
+        <label for="last_name">Last Name:</label><br>
+        <input type="text" id="last_name" name="last_name" required><br><br>
+
+        <label for="phone">Phone Number:</label><br>
+        <input type="tel" id="phone" name="phone" required><br><br>
+
+        <label for="postcode">Postcode:</label><br>
+        <input type="text" id="postcode" name="postcode" required><br><br>
+
+        <label for="address">Address:</label><br>
+        <textarea id="address" name="address" rows="3" cols="40" required></textarea><br><br>
+
+        <button type="submit">Save</button>
+    </form>
+
+    <div id="message"></div>
+
+    <script>
+      document.getElementById("profileForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const uuid = localStorage.getItem("uuid");
+        if (!uuid) {
+          document.getElementById("message").innerText = "Error: No user session (UUID not found). Please log in first.";
+          return;
+        }
+
+        const formData = {
+          login: "",  // not required here
+          password: "", // not required here
+          first_name: document.getElementById("first_name").value,
+          last_name: document.getElementById("last_name").value,
+          phone: document.getElementById("phone").value,
+          postcode: document.getElementById("postcode").value,
+          address: document.getElementById("address").value
+        };
+
+        const response = await fetch(`/profile/${uuid}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          document.getElementById("message").innerText = "✅ Profile saved successfully.";
+        } else {
+          document.getElementById("message").innerText = "❌ Failed to save profile: " + result.detail;
+        }
+      });
+    </script>
+</body>
+</html>
